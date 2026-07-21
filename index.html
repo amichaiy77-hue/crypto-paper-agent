@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="he">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>סוכן מסחר וירטואלי בקריפטו</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <h1>סוכן מסחר וירטואלי בקריפטו</h1>
+      <span id="lastUpdated" class="empty-note"></span>
+    </header>
+
+    <div class="disclaimer">
+      ⚠️ כסף <strong>וירטואלי בלבד</strong> — שום עסקה אמיתית לא מתבצעת ואין חיבור לבורסה אמיתית.
+      זה לא ייעוץ השקעות; ההחלטות מבוססות על ניתוח LLM ואינן ערובה לתוצאות.
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-tile">
+        <div class="label">שווי תיק כולל</div>
+        <div class="value" id="totalValue">–</div>
+        <div class="delta" id="totalDelta"></div>
+      </div>
+      <div class="stat-tile">
+        <div class="label">מזומן פנוי</div>
+        <div class="value" id="cashValue">–</div>
+      </div>
+      <div class="stat-tile">
+        <div class="label">רווח/הפסד מהתחלה</div>
+        <div class="value" id="pnlValue">–</div>
+        <div class="delta" id="pnlDelta"></div>
+      </div>
+    </div>
+
+    <section>
+      <h2>שווי תיק לאורך זמן</h2>
+      <div class="chart-box"><canvas id="equityChart"></canvas></div>
+    </section>
+
+    <section>
+      <h2>פוזיציות נוכחיות</h2>
+      <div id="positionsTableWrap"><p class="empty-note">אין פוזיציות פתוחות כרגע.</p></div>
+    </section>
+
+    <section>
+      <h2>יומן החלטות</h2>
+      <div class="decisions-list" id="decisionsList">
+        <p class="empty-note">עדיין אין החלטות מתועדות.</p>
+      </div>
+    </section>
+
+    <footer>מתעדכן אוטומטית כשהשגרה המתוזמנת רצה (כל שעה לכל היותר).</footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

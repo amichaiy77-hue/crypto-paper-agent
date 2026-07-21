@@ -1,0 +1,16 @@
+{
+  "startingBalanceUsd": 10000,
+  "watchlist": ["BTC", "ETH", "SOL"],
+  "coingeckoIds": {
+    "BTC": "bitcoin",
+    "ETH": "ethereum",
+    "SOL": "solana"
+  },
+  "riskRules": {
+    "maxPositionPctOfPortfolio": 0.20,
+    "minCashReservePct": 0.10,
+    "allowShort": false,
+    "allowLeverage": false
+  },
+  "notes": "כל השדות כאן ניתנים לעריכה ידנית. הסוכן המתוזמן קורא את הקובץ הזה בכל ריצה ולא משנה אותו בעצמו."
+}
