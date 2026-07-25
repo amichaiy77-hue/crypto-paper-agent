@@ -53,7 +53,23 @@
       </div>
     </section>
 
-    <footer>מתעדכן אוטומטית כשהשגרה המתוזמנת רצה (כל שעה לכל היותר).</footer>
+    <section>
+      <h2>הוספת נכס למעקב</h2>
+      <p class="empty-note">
+        פותח בקשה בגיטהאב (issue). הסוכן קורא בקשות פתוחות בכל ריצה ומוסיף
+        את הנכס לרשימת המעקב באופן אוטומטי.
+      </p>
+      <form id="addAssetForm" class="add-asset-form">
+        <input type="text" id="assetSymbol" placeholder="סימול, למשל BTC או AAPL" required />
+        <select id="assetType">
+          <option value="crypto">קריפטו</option>
+          <option value="stock">מניה</option>
+        </select>
+        <button type="submit">פתח בקשה בגיטהאב</button>
+      </form>
+    </section>
+
+    <footer>מתעדכן אוטומטית כשהשגרות המתוזמנות רצות.</footer>
   </div>
 
   <script src="app.js"></script>

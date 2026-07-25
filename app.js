@@ -30,7 +30,9 @@ function renderStats(portfolio, config) {
   const pnlPct = pnl / startingBalance;
 
   document.getElementById("totalValue").textContent = fmtUsd(totalValue);
-  document.getElementById("cashValue").textContent = fmtUsd(portfolio.cashUsd);
+  const cashEl = document.getElementById("cashValue");
+  cashEl.textContent = fmtUsd(portfolio.cashUsd);
+  cashEl.style.color = portfolio.cashUsd < 0 ? "var(--critical)" : "";
 
   const pnlEl = document.getElementById("pnlValue");
   pnlEl.textContent = `${pnl >= 0 ? "+" : ""}${fmtUsd(pnl)}`;
@@ -98,22 +100,24 @@ function renderChart(portfolio) {
   });
 }
 
-function renderPositions(portfolio, prices) {
+function renderPositions(portfolio) {
   const wrap = document.getElementById("positionsTableWrap");
-  const coins = Object.keys(portfolio.positions);
-  if (coins.length === 0) {
+  const symbols = Object.keys(portfolio.positions);
+  if (symbols.length === 0) {
     wrap.innerHTML = '<p class="empty-note">אין פוזיציות פתוחות כרגע.</p>';
     return;
   }
+  const prices = portfolio.lastPrices || {};
   const totalValue = portfolio.equityHistory.at(-1)?.totalValueUsd ?? 1;
-  const rows = coins
-    .map((coin) => {
-      const qty = portfolio.positions[coin].qty;
-      const price = prices?.[coin];
+  const rows = symbols
+    .map((symbol) => {
+      const qty = portfolio.positions[symbol].qty;
+      const price = prices[symbol];
       const value = price ? qty * price : null;
       const pct = value ? value / totalValue : null;
+      const directionLabel = qty < 0 ? " (שורט)" : "";
       return `<tr>
-        <td>${coin}</td>
+        <td>${symbol}${directionLabel}</td>
         <td>${fmtQty(qty)}</td>
         <td>${price ? fmtUsd(price) : "–"}</td>
         <td>${value ? fmtUsd(value) : "–"}</td>
@@ -122,7 +126,7 @@ function renderPositions(portfolio, prices) {
     })
     .join("");
   wrap.innerHTML = `<table>
-    <thead><tr><th>מטבע</th><th>כמות</th><th>מחיר נוכחי</th><th>שווי</th><th>% מהתיק</th></tr></thead>
+    <thead><tr><th>נכס</th><th>כמות</th><th>מחיר אחרון</th><th>שווי</th><th>% מהתיק</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
 }
@@ -141,7 +145,7 @@ function renderDecisions(decisions) {
       const badgeLabel =
         d.status === "rejected" ? `נדחה: ${ACTION_LABELS[d.action] ?? d.action}` : ACTION_LABELS[d.action] ?? d.action;
       const amount =
-        d.action !== "hold" && d.usdAmount ? ` · ${d.coin} · ${fmtUsd(d.usdAmount)}` : "";
+        d.action !== "hold" && d.usdAmount ? ` · ${d.symbol} · ${fmtUsd(d.usdAmount)}` : "";
       return `<div class="decision">
         <div class="meta">
           <span class="badge ${badgeClass}">${badgeLabel}</span>
@@ -165,23 +169,7 @@ async function main() {
     renderStats(portfolio, config);
     renderChart(portfolio);
     renderDecisions(decisions);
-
-    // best-effort live prices for the positions table; falls back gracefully if blocked
-    let prices = null;
-    try {
-      const ids = Object.values(config.coingeckoIds).join(",");
-      const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`);
-      if (res.ok) {
-        const data = await res.json();
-        prices = {};
-        for (const [symbol, id] of Object.entries(config.coingeckoIds)) {
-          prices[symbol] = data[id]?.usd;
-        }
-      }
-    } catch {
-      // ignore — table just shows without live price/value columns
-    }
-    renderPositions(portfolio, prices);
+    renderPositions(portfolio);
   } catch (err) {
     document.querySelector(".wrap").insertAdjacentHTML(
       "afterbegin",
@@ -191,4 +179,22 @@ async function main() {
   }
 }
 
+function setupAddAssetForm() {
+  const form = document.getElementById("addAssetForm");
+  if (!form) return;
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const symbol = document.getElementById("assetSymbol").value.trim().toUpperCase();
+    const type = document.getElementById("assetType").value;
+    if (!symbol) return;
+    const title = encodeURIComponent(`add-symbol: ${symbol} type:${type}`);
+    const body = encodeURIComponent(
+      `בקשה להוסיף נכס למעקב.\n\nסימול: ${symbol}\nסוג: ${type === "crypto" ? "קריפטו" : "מניה"}\n\nהסוכן המתוזמן יעבד את הבקשה הזו בריצה הבאה שלו ויסגור את ה-issue הזה.`
+    );
+    const url = `https://github.com/amichaiy77-hue/crypto-paper-agent/issues/new?title=${title}&body=${body}`;
+    window.open(url, "_blank");
+  });
+}
+
+setupAddAssetForm();
 main();

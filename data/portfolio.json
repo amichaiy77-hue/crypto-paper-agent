@@ -2,6 +2,7 @@
   "cashUsd": 10000,
   "positions": {},
   "lastUpdated": null,
+  "lastPrices": {},
   "equityHistory": [
     { "timestamp": "2026-07-21T00:00:00Z", "totalValueUsd": 10000 }
   ]

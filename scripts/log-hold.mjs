@@ -26,6 +26,7 @@ const totalValueUsd = computeTotalValueUsd(portfolio, prices);
 const timestamp = new Date().toISOString();
 
 portfolio.lastUpdated = timestamp;
+portfolio.lastPrices = prices;
 portfolio.equityHistory.push({ timestamp, totalValueUsd });
 await saveJson(PORTFOLIO_PATH, portfolio);
 

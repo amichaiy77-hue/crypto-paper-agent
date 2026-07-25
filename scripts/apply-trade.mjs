@@ -1,11 +1,15 @@
-// Usage: node scripts/apply-trade.mjs <buy|sell> <COIN> <usdAmount> "<reasoning>"
+// Usage: node scripts/apply-trade.mjs <buy|sell> <SYMBOL> <usdAmount> "<reasoning>"
 //
 // Executes a paper (virtual money) trade against data/portfolio.json.
 // Re-fetches live prices itself rather than trusting a caller-supplied price,
-// so the executed price can't be gamed. Enforces the risk rules in
-// data/config.json — if a trade would violate them, nothing is written to
-// portfolio.json and the attempt is logged to decisions.json as "rejected"
-// so the reasoning is still visible on the dashboard.
+// so the executed price can't be gamed. Supports leverage (cash can go
+// negative, i.e. borrowed) and short selling (position qty can go negative)
+// when enabled in data/config.json. The only guardrail is gross exposure
+// (sum of |position value| across everything held) staying within
+// maxLeverage x equity. If a trade would violate that — or shorting/leverage
+// is disabled and the trade needs it — nothing is written to portfolio.json
+// and the attempt is logged to decisions.json as "rejected" so the reasoning
+// is still visible on the dashboard.
 import {
   loadConfig,
   loadPortfolio,
@@ -13,10 +17,11 @@ import {
   appendDecision,
   fetchPrices,
   computeTotalValueUsd,
+  computeGrossExposureUsd,
   PORTFOLIO_PATH,
 } from "./lib.mjs";
 
-const [action, coin, usdAmountRaw, reasoning] = process.argv.slice(2);
+const [action, symbol, usdAmountRaw, reasoning] = process.argv.slice(2);
 
 function fail(message) {
   console.error(`Trade rejected: ${message}`);
@@ -26,7 +31,7 @@ function fail(message) {
 if (!["buy", "sell"].includes(action)) {
   fail(`first argument must be "buy" or "sell", got "${action}"`);
 }
-if (!coin) fail("coin symbol is required, e.g. BTC");
+if (!symbol) fail("symbol is required, e.g. BTC or QQQ");
 const usdAmount = Number(usdAmountRaw);
 if (!Number.isFinite(usdAmount) || usdAmount <= 0) {
   fail(`usdAmount must be a positive number, got "${usdAmountRaw}"`);
@@ -36,23 +41,20 @@ if (!reasoning || !reasoning.trim()) {
 }
 
 const config = await loadConfig();
-if (!config.watchlist.includes(coin)) {
-  fail(`${coin} is not in the watchlist (${config.watchlist.join(", ")})`);
-}
-if (config.riskRules.allowShort === false && action === "sell") {
-  // selling is only allowed against an existing holding (no shorting) — checked below
+if (!config.watchlist.includes(symbol)) {
+  fail(`${symbol} is not in the watchlist (${config.watchlist.join(", ")})`);
 }
 
 const portfolio = await loadPortfolio();
 const prices = await fetchPrices(config);
-const price = prices[coin];
+const price = prices[symbol];
 
 async function reject(reason) {
   await appendDecision({
     timestamp: new Date().toISOString(),
     status: "rejected",
     action,
-    coin,
+    symbol,
     usdAmount,
     price,
     reasoning,
@@ -61,81 +63,76 @@ async function reject(reason) {
   fail(reason);
 }
 
-const existingQty = portfolio.positions[coin]?.qty ?? 0;
-const totalValueBefore = computeTotalValueUsd(portfolio, prices);
+const existingQty = portfolio.positions[symbol]?.qty ?? 0;
+const qtyDelta = usdAmount / price;
+const newQty = action === "buy" ? existingQty + qtyDelta : existingQty - qtyDelta;
+const newCash = action === "buy" ? portfolio.cashUsd - usdAmount : portfolio.cashUsd + usdAmount;
 
-if (action === "buy") {
-  if (usdAmount > portfolio.cashUsd) {
-    await reject(`not enough cash (have $${portfolio.cashUsd.toFixed(2)}, need $${usdAmount.toFixed(2)})`);
-  }
+const { allowShort, allowLeverage, maxLeverage } = config.riskRules;
 
-  const qtyBought = usdAmount / price;
-  const newQty = existingQty + qtyBought;
-  const newCash = portfolio.cashUsd - usdAmount;
-  const newPositionValue = newQty * price;
-  // total portfolio value doesn't change on a buy (cash converts to position at market price)
-  const totalValueAfter = totalValueBefore;
+if (!allowShort && newQty < -1e-9) {
+  await reject(`would open a short position in ${symbol} (shorting is disabled)`);
+}
+if (!allowLeverage && newCash < -1e-9) {
+  await reject(
+    `would require borrowing $${Math.abs(newCash).toFixed(2)} (leverage is disabled)`
+  );
+}
 
-  const positionPct = newPositionValue / totalValueAfter;
-  if (positionPct > config.riskRules.maxPositionPctOfPortfolio) {
-    await reject(
-      `would put ${(positionPct * 100).toFixed(1)}% of the portfolio in ${coin}, ` +
-        `over the ${(config.riskRules.maxPositionPctOfPortfolio * 100).toFixed(0)}% limit`
-    );
-  }
-
-  const cashPct = newCash / totalValueAfter;
-  if (cashPct < config.riskRules.minCashReservePct) {
-    await reject(
-      `would leave only ${(cashPct * 100).toFixed(1)}% cash, ` +
-        `below the ${(config.riskRules.minCashReservePct * 100).toFixed(0)}% minimum reserve`
-    );
-  }
-
-  portfolio.cashUsd = newCash;
-  portfolio.positions[coin] = { qty: newQty };
+// Build the hypothetical post-trade portfolio to check leverage against.
+const hypotheticalPositions = { ...portfolio.positions };
+if (Math.abs(newQty) < 1e-9) {
+  delete hypotheticalPositions[symbol];
 } else {
-  if (config.riskRules.allowShort === false && existingQty <= 0) {
-    await reject(`no existing ${coin} position to sell (shorting is disabled)`);
-  }
-  const qtyToSell = usdAmount / price;
-  if (qtyToSell > existingQty + 1e-9) {
+  hypotheticalPositions[symbol] = { qty: newQty };
+}
+const hypotheticalPortfolio = { cashUsd: newCash, positions: hypotheticalPositions };
+
+const equityAfter = computeTotalValueUsd(hypotheticalPortfolio, prices);
+const grossExposureAfter = computeGrossExposureUsd(hypotheticalPortfolio, prices);
+const usingLeverageOrShort = newCash < -1e-9 || grossExposureAfter > equityAfter + 1e-6;
+
+if (usingLeverageOrShort) {
+  if (equityAfter <= 0) {
     await reject(
-      `trying to sell $${usdAmount.toFixed(2)} (${qtyToSell.toFixed(6)} ${coin}) ` +
-        `but only holding ${existingQty.toFixed(6)} ${coin}`
+      `equity would be $${equityAfter.toFixed(2)} (zero or negative) after this trade — no further leveraged/short trades allowed`
     );
   }
-
-  const newQty = existingQty - qtyToSell;
-  portfolio.cashUsd += usdAmount;
-  if (newQty <= 1e-9) {
-    delete portfolio.positions[coin];
-  } else {
-    portfolio.positions[coin] = { qty: newQty };
+  const impliedLeverage = grossExposureAfter / equityAfter;
+  if (impliedLeverage > maxLeverage + 1e-9) {
+    await reject(
+      `would use ${impliedLeverage.toFixed(2)}x leverage (gross exposure $${grossExposureAfter.toFixed(2)} vs equity $${equityAfter.toFixed(2)}), over the ${maxLeverage}x limit`
+    );
   }
 }
 
+portfolio.cashUsd = newCash;
+if (Math.abs(newQty) < 1e-9) {
+  delete portfolio.positions[symbol];
+} else {
+  portfolio.positions[symbol] = { qty: newQty };
+}
 portfolio.lastUpdated = new Date().toISOString();
-const totalValueNow = computeTotalValueUsd(portfolio, prices);
-portfolio.equityHistory.push({ timestamp: portfolio.lastUpdated, totalValueUsd: totalValueNow });
+portfolio.lastPrices = prices;
+portfolio.equityHistory.push({ timestamp: portfolio.lastUpdated, totalValueUsd: equityAfter });
 
 await saveJson(PORTFOLIO_PATH, portfolio);
 await appendDecision({
   timestamp: portfolio.lastUpdated,
   status: "executed",
   action,
-  coin,
+  symbol,
   usdAmount,
   price,
   reasoning,
   portfolioAfter: {
     cashUsd: portfolio.cashUsd,
     positions: portfolio.positions,
-    totalValueUsd: totalValueNow,
+    totalValueUsd: equityAfter,
   },
 });
 
 console.log(
-  `OK: ${action} $${usdAmount.toFixed(2)} of ${coin} @ $${price.toFixed(2)}. ` +
-    `Cash now $${portfolio.cashUsd.toFixed(2)}, total portfolio value $${totalValueNow.toFixed(2)}.`
+  `OK: ${action} $${usdAmount.toFixed(2)} of ${symbol} @ $${price.toFixed(2)}. ` +
+    `Cash now $${portfolio.cashUsd.toFixed(2)}, equity $${equityAfter.toFixed(2)}, gross exposure $${grossExposureAfter.toFixed(2)}.`
 );

@@ -1,16 +1,16 @@
 {
   "startingBalanceUsd": 10000,
-  "watchlist": ["BTC", "ETH", "SOL"],
+  "watchlist": ["BTC", "ETH", "SOL", "SNDK", "SPCX", "QQQ", "CEG"],
   "coingeckoIds": {
     "BTC": "bitcoin",
     "ETH": "ethereum",
     "SOL": "solana"
   },
+  "stockTickers": ["SNDK", "SPCX", "QQQ", "CEG"],
   "riskRules": {
-    "maxPositionPctOfPortfolio": 0.20,
-    "minCashReservePct": 0.10,
-    "allowShort": false,
-    "allowLeverage": false
+    "allowShort": true,
+    "allowLeverage": true,
+    "maxLeverage": 10
   },
-  "notes": "כל השדות כאן ניתנים לעריכה ידנית. הסוכן המתוזמן קורא את הקובץ הזה בכל ריצה ולא משנה אותו בעצמו."
+  "notes": "כל השדות כאן ניתנים לעריכה ידנית. הסוכן המתוזמן קורא את הקובץ הזה בכל ריצה ולא משנה אותו בעצמו. מינוף ושורט מופעלים; מקס' חשיפה גולמית = maxLeverage כפול ההון העצמי. אין מגבלת אחוז למטבע/מניה בודדים."
 }
