@@ -1,12 +1,12 @@
 {
   "startingBalanceUsd": 10000,
-  "watchlist": ["BTC", "ETH", "SOL", "SNDK", "SPCX", "QQQ", "CEG"],
+  "watchlist": ["BTC", "ETH", "SOL", "SNDK", "SPCX", "QQQ", "CEG", "IQMX"],
   "coingeckoIds": {
     "BTC": "bitcoin",
     "ETH": "ethereum",
     "SOL": "solana"
   },
-  "stockTickers": ["SNDK", "SPCX", "QQQ", "CEG"],
+  "stockTickers": ["SNDK", "SPCX", "QQQ", "CEG", "IQMX"],
   "riskRules": {
     "allowShort": true,
     "allowLeverage": true,
