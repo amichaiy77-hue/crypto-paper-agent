@@ -1,16 +1,16 @@
 {
   "cashUsd": 10000,
   "positions": {},
-  "lastUpdated": "2026-07-31T13:34:11.025Z",
+  "lastUpdated": "2026-07-31T15:19:12.451Z",
   "lastPrices": {
-    "BTC": 63543,
-    "ETH": 1880.76,
-    "SOL": 73.52,
-    "QQQ": 694.895,
-    "SNDK": 1382.6,
-    "SPCX": 112.985,
-    "IQMX": 10.53,
-    "CEG": 269.041
+    "BTC": 62534,
+    "ETH": 1856.33,
+    "SOL": 72.87,
+    "SNDK": 1239.07,
+    "CEG": 261.746,
+    "SPCX": 109.483,
+    "QQQ": 684.43,
+    "IQMX": 9.995
   },
   "equityHistory": [
     {
@@ -143,6 +143,10 @@
     },
     {
       "timestamp": "2026-07-31T13:34:11.025Z",
+      "totalValueUsd": 10000
+    },
+    {
+      "timestamp": "2026-07-31T15:19:12.451Z",
       "totalValueUsd": 10000
     }
   ]
